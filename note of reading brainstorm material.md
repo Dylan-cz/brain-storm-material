@@ -296,3 +296,31 @@ from main memory, 100 cycles.
 每级缓存使用不同数量的bits作为index，因为容量不同
 
 Tag的长度随着缓存级别增加而减少
+
+
+
+## 多处理器缓存一致性
+
+
+
+为什么要多核心，因为晶体管数量增加的速度减慢了
+
+![image-20241224213233843](image-20241224213233843.png)
+
+
+
+数据有时从一个核传输到另一个核有时更高效：
+
+![image-20241225163219521](image-20241225163219521.png)
+
+### 缓存一致性protocol（MSI protocol）：
+
+Modified, sharing, invalid
+
+### Concurrency platforms:
+
+ 
+
+ 
+
+ 
