@@ -364,6 +364,21 @@ Tag的长度随着缓存级别增加而减少
 
  
 
+## MESI 协议
+
+MESI 协议其实是 4 个状态单词的开头字母缩写，分别是：
+
+- *Modified*，已修改
+- *Exclusive*，独占
+- *Shared*，共享
+- *Invalidated*，已失效
+
+流程图见下链接：
+
+https://www.xiaolincoding.com/os/1_hardware/cpu_mesi.html#%E6%80%BB%E7%BA%BF%E5%97%85%E6%8E%A2
+
+有一点要注意：关于modified 状态，其他核对同一个数据的读/写，都会导致local 核先write-back，先把local核的数据写入内存。其他核读，则local 核的cache line变成shared 状态；其他核写，则local 核变成invalidated 状态
+
 ####  缓存一致性的基本实现方案:
 
 一致性缓存（Coherent Cache）为那些被同时读取的共享数据提供了复制功能，在本地缓存中制作了数据项的一个副本。这个复制功能即缩短了访问延迟又减少了对被读共享数据项的竞争。所以支持迁移与复制功能对于共享数据的访问性能非常重要，多处理器采用了一种硬件解决方案，通过引入协议来保持缓存的一致性。
