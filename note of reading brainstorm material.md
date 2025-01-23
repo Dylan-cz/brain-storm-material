@@ -334,11 +334,13 @@ Tag的长度随着缓存级别增加而减少
 
 
 
-### Multiprocessor Architecture:
+### shared-memory multiprocessors Architecture:
 
 #### SMP:
 
 symmetric (shared-memory) multiprocessors (**SMP**), or centralized shared-memory multiprocessors
+
+most existing multicores are SMPs, but not all.
 
 SMP architectures are also sometimes called uniform memory access (**UMA**) multiprocessors, arising from the fact that all processors have a uniform latency from memory, even if the memory is organized into multiple banks
 
@@ -346,9 +348,26 @@ SMP architectures are also sometimes called uniform memory access (**UMA**) mult
 
 #### DSM:
 
-distributed shared memory (**DSM**).
+distributed shared memory (**DSM**) 
 
-Centralized Shared Memory Architecture
+A DSM multiprocessor is also called a NUMA (nonuniform memory access) because the access time depends on the location of a
+
+data word in memory
+
+With the rapid increase in processor performance and the associated increase in a processor’s memory bandwidth requirements, the number of cores shrinks among multiprocessor that decide to take the DSM architecture 
+
+-  key disadvantages for a DSM are that communicating data among processors becomes somewhat more complex 
+- a DSM requiresmore effort in the software to take advantage of the increased memory bandwidth provided by distributed memories
+
+![image-20250123230921042](pics_for_typora/image-20250123230921042.png)
+
+
+
+an example of amd numa cpu architecture：
+
+every ccd（core complex die） represents a numa node
+
+![image-20250123233113492](pics_for_typora/image-20250123233113492.png)
 
 
 
