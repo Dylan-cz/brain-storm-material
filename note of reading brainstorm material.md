@@ -338,7 +338,7 @@ Tag的长度随着缓存级别增加而减少
 
 #### SMP:
 
-symmetric (shared-memory) multiprocessors (**SMP**), or centralized shared-memory multiprocessors
+symmetric (shared-memory) multiprocessors (**SMP**), or **centralized shared-memory multiprocessors**
 
 most existing multicores are SMPs, but not all.
 
@@ -350,14 +350,12 @@ SMP architectures are also sometimes called uniform memory access (**UMA**) mult
 
 distributed shared memory (**DSM**) 
 
-A DSM multiprocessor is also called a NUMA (nonuniform memory access) because the access time depends on the location of a
-
-data word in memory
+A DSM multiprocessor is also called a NUMA (nonuniform memory access) because the access time depends on the location of a data word in memory
 
 With the rapid increase in processor performance and the associated increase in a processor’s memory bandwidth requirements, the number of cores shrinks among multiprocessor that decide to take the DSM architecture 
 
 -  key disadvantages for a DSM are that communicating data among processors becomes somewhat more complex 
-- a DSM requiresmore effort in the software to take advantage of the increased memory bandwidth provided by distributed memories
+- a DSM requires more effort in the software to take advantage of the increased memory bandwidth provided by distributed memories
 
 ![image-20250123230921042](pics_for_typora/image-20250123230921042.png)
 
@@ -428,7 +426,92 @@ https://www.xiaolincoding.com/os/1_hardware/cpu_mesi.html#%E6%80%BB%E7%BA%BF%E5%
 
 
 
-### False sharing:
+### Performance of Symmetric Shared-Memory Multiprocessors:(对称共享存储器多处理器的性能)
+
+In particular, the overall cache performance is a combination of the：
+
+- behavior of uniprocessor cache miss traffic
+- the traffic caused by communication, which results in invalidations and subsequent cache misses
+
+
+
+### Ture sharing miss and False sharing:
+
+让我详细解释真共享缺失（True Sharing Miss）和假共享缺失（False Sharing Miss）：
+
+真共享缺失（True Sharing Miss）：
+1. 定义：
+   - 多个处理器确实需要访问同一个数据
+   - 当一个处理器修改数据后，其他需要该数据的处理器的缓存失效
+
+2. 示例：
+```c
+// 多个线程共享一个计数器
+int counter = 0;  // 共享变量
+
+// 线程1
+counter++;  // 修改计数器
+
+// 线程2
+int value = counter;  // 读取计数器，发生真共享缺失
+```
+
+3. 解决方法：
+   - 减少共享数据的访问频率
+   - 使用适当的同步机制
+   - 分解共享数据（如果可能）
+
+假共享缺失（False Sharing Miss）：
+1. 定义：
+   - 多个处理器访问的是不同的数据
+   - 但这些数据恰好位于同一个缓存行（cache line）中
+   - 一个处理器修改数据会导致整个缓存行失效
+
+2. 示例：
+```c
+struct {
+    int x;  // 线程1使用
+    int y;  // 线程2使用
+} data;     // x和y在同一个缓存行
+
+// 线程1
+data.x++;   // 修改x，导致包含y的缓存行也失效
+
+// 线程2
+int val = data.y;  // 读取y，发生假共享缺失
+```
+
+3. 解决方法：
+   - 填充（padding）数据结构：
+```c
+struct {
+    int x;
+    char pad1[60];  // 填充使x独占一个缓存行
+    int y;
+    char pad2[60];  // 填充使y独占一个缓存行
+} data;
+```
+   - 数据对齐：确保频繁访问的数据在不同的缓存行
+   - 使用编译器指令（如 `alignas`）
+
+主要区别：
+1. 数据访问意图：
+   - 真共享：处理器确实需要访问相同数据
+   - 假共享：处理器访问不同数据，但受缓存行组织影响
+
+2. 必要性：
+   - 真共享：是程序逻辑所必需的
+   - 假共享：是缓存组织导致的意外效果
+
+3. 优化方向：
+   - 真共享：优化数据共享的算法和同步机制
+   - 假共享：优化数据在内存中的布局
+
+4. 性能影响：
+   - 两者都会导致缓存失效和性能下降
+   - 假共享更容易优化，因为可以通过数据布局来避免
+
+在实际编程中，尤其是需要高性能的多线程程序，需要同时考虑这两种共享问题，采取适当的优化措施。
 
 
 
