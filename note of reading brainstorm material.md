@@ -33,6 +33,26 @@ L4和L3之间通常使用几百或几千Bytes 作为一个transfer unit
 
 ![image-20241106230653138](./pics_for_typora/20241106230653138.png)
 
+##### 内存对齐：
+
+理论上，32位系统下，int占4byte，char占一个byte，那么将它们放到一个结构体中应该占4+1=5byte；但是实际上，通过运行程序得到的结果是8 byte，这就是内存对齐所导致的。
+
+为什么需要内存对齐？
+
+尽管内存是以字节为单位，但是大部分处理器并不是按字节块来存取内存的.它一般会以双字节,四字节,8字节,16字节甚至32字节为单位来存取内存，我们将上述这些存取单位称为内存存取粒度，现在考虑4字节存取粒度的处理器取int类型变量（32位系统），该处理器只能从地址为4的倍数的内存开始读取数据。
+
+假如没有[内存对齐机制](https://zhida.zhihu.com/search?content_id=4191241&content_type=Article&match_order=1&q=内存对齐机制&zhida_source=entity)，数据可以任意存放，现在一个int变量存放在从地址1开始的联系四个字节地址中，该处理器去取数据时，要先从0地址开始读取第一个4字节块,剔除不想要的字节（0地址）,然后从[地址4](https://zhida.zhihu.com/search?content_id=4191241&content_type=Article&match_order=1&q=地址4&zhida_source=entity)开始读取下一个4字节块,同样剔除不要的数据（5，6，7地址）,最后留下的两块数据合并放入[寄存器](https://zhida.zhihu.com/search?content_id=4191241&content_type=Article&match_order=1&q=寄存器&zhida_source=entity).这需要做很多工作.
+
+##### 内存对齐规则
+
+1. **基本类型**的对齐值就是其sizeof值;
+2. **数据成员对齐规则**：结构(struct)(或联合(union))的数据成员，第一个数据成员放在offset为0的地方，以后每个数据成员的对齐按照#pragma pack指定的数值和这个数据成员自身长度中，比较小的那个进行;
+3. **结构(或联合)的整体对齐规则**：在数据成员完成各自对齐之后，结构(或联合)本身也要进行对齐，对齐将按照#pragma pack指定的数值和结构(或联合)最[大数据](https://cloud.tencent.com/product/bigdata-class?from_column=20065&from=20065)成员长度中，比较小的那个进行;
+
+
+
+
+
 **Cache miss 种类**
 
 - cold miss：also called compulsoy miss（强制性不命中），第k层的缓存是空的，通常是短暂的
@@ -744,6 +764,12 @@ struct {
 
 在实际编程中，尤其是需要高性能的多线程程序，需要同时考虑这两种共享问题，采取适当的优化措施。
 
+**如何判断程序是否存在False sharing呢？**：
+
+perf stat -e cache-misses ./program 查看是否cache miss增多
+
+valgrind --tool=cachegrind ./program 判断是否存在频繁的共享变量冲突
+
 
 
 #### Bandwidth Consideration：
@@ -782,11 +808,27 @@ struct {
 
 ### 优化策略和最佳实践:
 
-##### 提升局部性：
+- #### 提升局部性：
 
-##### 数据分块：
+- #### 合理选择数据结构：
 
-将数据分割成小块，使每块数据可以完全装入缓存，从而减少主存访问次数，例子：矩阵乘法优化：
+  - 避免过度使用链表等不连续存储数据结构
+
+  - 使用alignas(64) 来强制缓存行对齐， The `alignas` specifier, introduced in C11, controls the alignment of variables and user-defined types (struct, union, class). It ensures that an object is stored in memory at an address that is a multiple of a specified value。
+
+    ```c++
+    struct GoodStruct {
+    	alignas(64) int b; // forcelly align to 64 byte, b must be in one cache line
+    	char a;
+    }
+    ```
+
+    这样使int b单独在一个缓存行中，**防止false sharing**（比如多线程访问同一个缓存行上的不同变量时，即使访问的不是同一个数据，但是cpu仍然要更新整个缓存行，导致另外一个线程要用到的变量失效，造成cache miss）
+
+- #### 数据分块：
+
+
+​	将数据分割成小块，使每块数据可以完全装入缓存，从而减少主存访问次数，例子：矩阵乘法优化：
 
 **分块矩阵乘法示例：4x4矩阵**
 
@@ -796,7 +838,9 @@ struct {
 
 ​	•	**减少主存访问**: 每个块计算可以重用已经加载的数据，从而提高缓存命中率。
 
+​	这种分块技术对于大规模矩阵计算尤其有效，能够显著提升性能。
 
 
-这种分块技术对于大规模矩阵计算尤其有效，能够显著提升性能。
+
+- #### 避免FalseSharing:
 
