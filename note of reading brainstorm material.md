@@ -746,3 +746,45 @@ struct {
 
 
 
+#### Bandwidth Consideration：
+
+- Each processor has a maximum bandwidth to the memory which is shared by all cores and hyper-threads on that processor. multiple processors might share the same bus to memory or the Northbridge（北桥（Northbridge）是计算机主板上的一个芯片，负责连接CPU与高速设备，如内存（RAM）和显卡（GPU）
+
+- The processor cores themselves run at frequencies where, at full speed, even in perfect conditions, the connection to the memory cannot fulfill all load and store requests without waiting.  Efficient programs may be limited in their performance by the available memory bandwidth.
+
+  ##### How to recongnize if the slowdown is caused by memory bandwidth?
+
+  - **NUS_BNR_DRV** event counts the number of cycles a core has to wait because the bus is not ready
+
+  - **offcore_requests_outstanding.cycles_with_data_rd**:  this event count, In practical terms, this counter helps you measure memory-related bottlenecks by showing how many cycles your core spends waiting for data to come back from memory. A high count here could indicate:
+
+    - Memory bandwidth saturation
+    - High memory latency
+    - Potential memory access patterns that could be optimized
+
+    This metric is particularly useful when profiling applications that are memory-bound rather than compute-bound.
+
+  
+
+  example:
+
+  ![image-20250209200714288](pics_for_typora\image-20250209200714288.png)
+
+  One situation which can cause big memory bus usage is when two threads are scheduled on different processors (or cores in different cache domains) and they use the same data set. Figure 6.13 shows such a situation. Core 1 and 3 access the same data (indicated by the same color for the access indicator and the memory area). Similarly core 2 and 4 access the same data. But the threads are scheduled on different processors. This means each data set has to be read twice from memory. This situation can be handled better
+
+  ![image-20250209200803489](pics_for_typora\image-20250209200803489.png)
+
+  In Figure 6.14 we see how it should ideally look like. Now the total cache size in use is reduced since now core 1 and 2 and core 3 and 4 work on the same data. The data sets have to be read from memory only once.
+
+
+
+
+
+### 优化策略和最佳实践:
+
+##### 提升局部性：
+
+##### 数据分块：
+
+将数据分割成小块，使每块数据可以完全装入缓存，从而减少主存访问次数，例子：矩阵乘法优化：
+
