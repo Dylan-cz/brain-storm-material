@@ -19,6 +19,12 @@
 
 
 
+![image-20250217233125507](pics_for_typora\image-20250217233125507.png)
+
+
+
+
+
 #### 存储器层次结构（memory hierachy）
 
 ![image-20241106221244289](./pics_for_typora/20241106221244289.png)
