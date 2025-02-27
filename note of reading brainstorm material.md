@@ -430,6 +430,55 @@ every ccd（core complex die） represents a numa node
 
 
 
+### AMD EPYC NUMA Architecture Explained
+
+The diagram illustrates the key components of a NUMA (Non-Uniform Memory Access) architecture in an AMD EPYC server processor. Here's an explanation of the components:
+
+![image-20250226151640076](pics_for_typora\image-20250226151640076.png)
+
+### Physical Components
+
+1. **Socket**: 
+   - A physical CPU package that contains multiple CPU cores and memory controllers
+   - Modern server systems typically have 2-8 sockets
+   - Each AMD EPYC socket shown contains multiple NUMA nodes
+
+2. **NUMA Node**:
+   - A group of CPU cores that share the same local memory access characteristics
+   - AMD EPYC processors typically have multiple NUMA nodes per socket (2 in this example)
+   - Memory access within a NUMA node is faster than across NUMA nodes
+
+3. **CPU Cores**:
+   - Individual processing units that execute instructions
+   - Each NUMA node contains multiple cores (8 cores per NUMA node in this example)
+   - AMD EPYC processors can have up to 64+ cores per socket
+
+4. **Memory Controller**:
+   - Hardware that manages data flow between CPU cores and memory
+   - Each NUMA node has its own dedicated memory controller
+   - Controls access to the local memory attached to that NUMA node
+
+5. **Memory Channels**:
+   - Physical connections between memory controllers and memory modules
+   - Multiple channels per controller increase memory bandwidth
+   - AMD EPYC supports 8+ memory channels per socket
+
+### Memory Access Characteristics
+
+- **Local Memory Access**: When a core accesses memory within its own NUMA node (fast)
+- **Remote Memory Access**: When a core accesses memory in another NUMA node (slower)
+- **Inter-Socket Access**: Memory access across different physical sockets (slowest)
+
+### Interconnects
+
+- **Intra-Socket Connections**: Connect NUMA nodes within the same socket
+- **Inter-Socket Connections**: Connect different physical sockets together
+- AMD uses Infinity Fabric as its interconnect technology
+
+This architecture allows AMD EPYC processors to scale to high core counts while maintaining reasonable memory access performance through local memory prioritization.
+
+
+
 ![image-20241224213233843](./pics_for_typora/image-20241224213233843.png)
 
 
@@ -702,7 +751,7 @@ In particular, the overall cache performance is a combination of the：
    - 当一个处理器修改数据后，其他需要该数据的处理器的缓存失效
 
 2. 示例：
-```c
+```c++
 // 多个线程共享一个计数器
 int counter = 0;  // 共享变量
 
@@ -712,6 +761,35 @@ counter++;  // 修改计数器
 // 线程2
 int value = counter;  // 读取计数器，发生真共享缺失
 ```
+
+```c++
+// Structure demonstrating true sharing
+struct SharedCounter {
+    int value;  // This single variable is shared between threads
+};
+
+void increment_counter(SharedCounter* data, int iterations) {
+    for (int i = 0; i < iterations; i++) {
+        // Both threads modify the exact same variable
+        // This is true sharing - actual contention on the same data
+        data->value++;
+    }
+}
+
+int main() {
+    SharedCounter data = {0};
+    const int iterations = 10000000;
+    // Create two threads that will modify the same variable
+    std::thread t1(increment_counter, &data, iterations);
+    std::thread t2(increment_counter, &data, iterations);
+
+    t1.join();
+    t2.join();
+    return 0;
+}
+```
+
+
 
 3. 解决方法：
    - 减少共享数据的访问频率
@@ -738,18 +816,71 @@ data.x++;   // 修改x，导致包含y的缓存行也失效
 int val = data.y;  // 读取y，发生假共享缺失
 ```
 
+```c++
+// Structure to demonstrate true sharing
+struct SharedData {
+    int counter1;  // Used by thread 1
+    int counter2;  // Used by thread 2
+    // Both counters likely share the same cache line
+};
+
+void increment_counter1(SharedData* data, int iterations) {
+    for (int i = 0; i < iterations; i++) {
+        data->counter1++;
+        // This modification invalidates the entire cache line
+        // affecting counter2 even though it's not being modified
+    }
+}
+
+void increment_counter2(SharedData* data, int iterations) {
+    for (int i = 0; i < iterations; i++) {
+        data->counter2++;
+        // This modification also invalidates the entire cache line
+        // affecting counter1 even though it's not being modified
+    }
+}
+
+int main() {
+    SharedData data = {0, 0};
+    const int iterations = 10000000;
+
+    // Create two threads that will modify different variables
+    // but likely share the same cache line
+    std::thread t1(increment_counter1, &data, iterations);
+    std::thread t2(increment_counter2, &data, iterations);
+
+    t1.join();
+    t2.join();
+    return 0;
+}
+```
+
+
+
 3. 解决方法：
    - 填充（padding）数据结构：
+
 ```c
 struct {
     int x;
-    char pad1[60];  // 填充使x独占一个缓存行
+    char pad1[60];  // padding makes x exclusively own a cache line
     int y;
-    char pad2[60];  // 填充使y独占一个缓存行
+    char pad2[60];  // padding makes y exclusively own a cache line
 } data;
 ```
    - 数据对齐：确保频繁访问的数据在不同的缓存行
+
    - 使用编译器指令（如 `alignas`）
+
+     ```c++
+     struct alignas(64) AlignedStruct {  // 64 is typical cache line size
+         int counter1;
+         char pad[60];
+         int counter2;
+     };
+     ```
+
+     
 
 主要区别：
 1. 数据访问意图：
